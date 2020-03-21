@@ -1,0 +1,141 @@
+<!doctype html>
+<html class="no-js" lang="en" style="height: 100%;">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>Who.io</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- <link rel="manifest" href="site.webmanifest"> -->
+    <link rel="shortcut icon" type="image/x-icon" href="img/favicon.png">
+    <!-- Place favicon.ico in the root directory -->
+
+    <!-- CSS here -->
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/magnific-popup.css">
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <link rel="stylesheet" href="css/themify-icons.css">
+    <link rel="stylesheet" href="css/nice-select.css">
+    <link rel="stylesheet" href="css/flaticon.css">
+    <link rel="stylesheet" href="css/style.css">
+	
+	<link rel="stylesheet" href="css/who-style.css">
+</head>
+
+<body style="height: 100%;">
+    <!--[if lte IE 9]>
+            <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
+        <![endif]-->
+
+    <!-- Game area -->
+    <div class="slider_area slider_bg_1" >
+        <div class="slider_text">
+            <div class="">
+                <div class="position_relv">
+                    <h1 class="opcity_text d-none d-lg-block">Who.io</h1>
+                    <div class="row d-flex justify-content-between">
+                	    <div class="board-title row col-lg-12 justify-content-center">
+					    	<h1 id="lobby-name" name="lobby-name"></h1>
+					    </div>
+
+                        <div class="col-lg-2 lobby justify-content-center text-center" id="lobby" name="lobby">
+							<h2 class="text-white" style="text-align: center; margin-top: 20px;">Lobby</h2>
+							
+							<div class="people" id="people" name="people"></div>
+							
+                        </div>
+						
+                        <div class="col-lg-5 game justify-content-center text-center" id="game" name="game">
+							<!-- Ready Screen -->
+                        	<div class="ready-screen" id="ready-screen" name="ready-screen">
+								<h3 class="text-white"><strong>Players ready: </strong><span id="playerready" name="playerready"></span></h3>							
+								<button type="button" class="btn btn-success" id="ready-button" name="ready-button" onclick="playerisready()">Ready!</button>
+							</div>	
+							<!-- /Ready Screen -->
+
+							<!-- Question Screen -->
+							<div class="question-screen" style="display: none;" id="question-screen" name="question-screen">
+								<h3 class="text-white"><strong>Round </strong><span id="roundnb" name="roundnb"></span></h3>
+
+								<p class="text-white" id="question" name="question"></p>
+
+							</div>
+							<!-- /Question Screen -->
+
+
+
+
+
+                        </div>
+						
+						<div class="col-lg-2 history justify-content-center text-center" id="history" name="history">
+							<h2 class="text-white" style="text-align: center; margin-top: 20px;">History</h2>
+							
+							<div class="history-content" id="history-content" name="history-content"></div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <!-- Game area end -->
+
+    <!-- JS here -->
+    <script src="js/bootstrap.min.js"></script>	
+	<script src="js/socket.io.js"></script>
+	
+	<script>
+		function AppendHistory(text) {
+			document.getElementById("history-content").innerHTML += "<span class=\"text-white history-item\">" + text + "<span/><br/>";	
+		}
+	
+		// ======= socket.io =======
+		// Connexion to socket.io
+		var socket = io.connect('http://chaps06tv.ddns.net:8080');	
+		
+		var room = prompt("Please enter the lobby name");
+		var name = prompt("Please enter your name");
+		
+		socket.emit('game-client', name, room);
+		
+		AppendHistory("Welcome " + name + "!");
+		document.getElementById("lobby-name").innerHTML = room;
+		
+		socket.on('lobby-list', function(data) {
+			document.getElementById("people").innerHTML = "";
+			data.forEach(function(item) {
+				document.getElementById("people").innerHTML += "<span class=\"text-white lobby-item\">" + item + "<span/><br/>";
+			});
+		}); 
+
+		socket.on('error-nolobby', function(data) {
+			alert("Wrong lobby name!");
+			window.location.href = 'index.html';
+		}); 
+
+		socket.on('playerready-update', function(data) {
+			document.getElementById("playerready").innerHTML = data;
+		});
+
+		socket.on('game-started', function(data) {
+			document.getElementById("ready-screen").style.display = "none";
+			document.getElementById("question-screen").style.display = "inline";
+			document.getElementById("question").innerHTML = data;
+		});
+
+		function playerisready(){
+			socket.emit('playerready');
+			document.getElementById("ready-button").style.display = "none";
+
+		}
+		
+		
+	</script>
+	
+</body>
+
+</html>

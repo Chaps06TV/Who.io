@@ -1,0 +1,60 @@
+h1 {
+	color: white;
+}
+
+.lobby {
+	background-color: rgba(0,0,0,0.5);
+	border-radius: 25px;
+	padding-bottom: 20px;
+	max-height: 500px;
+	
+}
+
+.game {
+	background-color: rgba(0,0,0,0.5);
+	height: 200px;
+	border-radius: 25px;
+}
+
+.history {
+	background-color: rgba(0,0,0,0.5);
+	border-radius: 25px;
+	padding-bottom: 20px;
+	max-height: 500px;
+}
+
+.create {
+	background-color: rgba(0,0,0,0.5);
+	border-radius: 25px;
+	padding-bottom: 15px;
+}
+
+.lobby-item {
+	margin-top: 10px;
+}
+
+.people {
+	overflow-y: auto;
+	max-height: 90%;
+}
+
+.history-content {
+	overflow-y: auto;
+	max-height: 90%;
+}
+
+.history-item {
+	margin-top: 10px;
+}
+
+.board-title {
+	margin-bottom: 50px;
+}
+
+.ready-screen {
+	margin-top: 20px;
+}
+
+.question-screen {
+	margin-top: 20px;
+}
