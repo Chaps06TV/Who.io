@@ -14,19 +14,86 @@ class Game {
 		this.cards = deck;
 		this.usedCards = new Array();
 
+		this.currentround = 0;
+		this.currentquestion = "";
+		this.currentvotes = new Array(2);
+		this.votecount = 0;
+
+		this.history = new Array(2);
+
 		if(this.cards.length < rounds)
 			rounds = this.cards.length;
 	}
 
 	get nextcard() {
 		var card = "";
-		do {
-	    	card = this.cards[Math.floor(Math.random() * this.cards.length)];
-	    } while (this.usedCards.includes(card));
-		
-	    this.usedCards.push(card);
+		if(!(this.currentround >= this.rounds)) {
+			do {
+		    	card = this.cards[Math.floor(Math.random() * this.cards.length)];
+		    } while (this.usedCards.includes(card));
+			
+		    this.usedCards.push(card);
+		} 
+		else {
+			card = null;
+		}
+
+	    this.currentround++;
+
+		this.currentvotes = new Array(2);
+
+		this.votecount = 0;
+
+		this.currentquestion = card;
 
 		return card;
+	}
+
+	get getround() {
+		return this.currentround;
+	}
+
+	get getvotecount() {
+		return this.votecount;
+	}
+
+	get voteresults() {
+		return this.currentvotes;
+	}
+
+	get finalhistory() {
+		return this.history;
+	}
+
+	set newvote(username) {
+		var isNew = true;
+		this.currentvotes.forEach(function(item) {
+			if(item[0] === username){
+				item[1] += 1;
+				isNew = false;
+			}
+		});
+
+		if(isNew)
+			this.currentvotes.push([username, 1]);
+
+		this.votecount += 1;
+		
+	}
+
+	set insertwinner(winner) {
+		var temp = this.currentquestion;
+		var isNew = true;
+		this.history.forEach(function(item) {
+			if(item[0] === winner){
+				item[1].push(temp);
+				isNew = false;
+			}
+		});
+
+		if(isNew)
+			this.history.push([winner, [temp]]);
+
 	}
 }
 
@@ -70,11 +137,11 @@ io.sockets.on('connection', function(socket){
 					countReady++;
 			});
 			
-			socket.broadcast.emit('lobby-list', peopleInLobby);
-			socket.emit('lobby-list', peopleInLobby);
+			socket.broadcast.emit('lobby-list', peopleInLobby, roomid);
+			socket.emit('lobby-list', peopleInLobby, roomid);
 			
-			socket.broadcast.emit('playerready-update', countReady + "/" + peopleInLobby.length);
-			socket.emit('playerready-update', countReady + "/" + peopleInLobby.length);
+			socket.broadcast.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
+			socket.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
 		}
 		else {
 			socket.emit('error-nolobby');
@@ -103,7 +170,7 @@ io.sockets.on('connection', function(socket){
 		var countReady = 0;
 		clientToRoomBindingList.forEach(function(item, i) {
 			if(item[0] === socket.id){
-				roomid = item[2]
+				roomid = item[2];
 				clientToRoomBindingList.splice(i,1);
 			}
 			if(item[3] === true)
@@ -117,9 +184,11 @@ io.sockets.on('connection', function(socket){
 			}
 		});
 		
-		socket.broadcast.emit('lobby-list', peopleInLobby);
+		//socket.broadcast.emit('lobby-list', peopleInLobby);
 
-		socket.broadcast.emit('playerready-update', countReady + "/" + peopleInLobby.length);
+		socket.broadcast.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
+
+		//CleanupRooms();
 								
 	});
 
@@ -139,7 +208,7 @@ io.sockets.on('connection', function(socket){
 			if(item[2] === room) {
 				countTotal++;
 			}
-			if(item[3] === true) {
+			if(item[2] === room && item[3] === true) {
 				countReady++;
 			}
 		});
@@ -153,17 +222,89 @@ io.sockets.on('connection', function(socket){
 				}
 			});
 
-			socket.broadcast.emit('game-started', question);
-			socket.emit('game-started', question);
+			socket.broadcast.emit('game-started', question, room);
+			socket.emit('game-started', question, room);
 		}
 		else {
-			socket.broadcast.emit('playerready-update', countReady + "/" + countTotal);
-			socket.emit('playerready-update', countReady + "/" + countTotal);
-
+			socket.broadcast.emit('playerready-update', countReady + "/" + countTotal, room);
+			socket.emit('playerready-update', countReady + "/" + countTotal, room);
 	
 		}
 
 	});
+
+	socket.on('playervoted', function(username, roomid) {
+		var voteCount = 0;
+		var votes = new Array(2);
+		roomList.forEach(function(item) {
+			if(item[0] === roomid) {
+				item[2].newvote = username;
+				voteCount = item[2].getvotecount;
+				votes = item[2].voteresults;
+				
+			}
+		});
+
+		// Check if everybody voted
+		var countTotal = 0;
+		clientToRoomBindingList.forEach(function(item) {
+			if(item[2] === roomid)
+				countTotal++;
+		});
+		
+		if(voteCount == countTotal) {
+			var most = "";
+			var mostNum = 0;
+			votes.forEach(function(item) {
+				if(item[1] > mostNum) {
+					most = item[0];
+					mostNum = item[1];
+				}
+			});
+
+			socket.broadcast.emit('voteresult', votes, most, mostNum, roomid);
+			socket.emit('voteresult', votes, most, mostNum, roomid);
+
+			roomList.forEach(function(item) {
+				if(item[0] === roomid)
+					item[2].insertwinner = most;
+			});
+
+			setTimeout(NewRound, 5000, roomid);
+
+		}
+
+	});
+
+	function NewRound(room) {
+		var card = "";
+		var round = 0;
+		roomList.forEach(function(item) {
+			if(item[0] === room) {
+				card = item[2].nextcard;
+				round = item[2].getround;
+			}
+		});
+
+		if(card === null) {
+			// Gamed ended
+			var scoreboard = new Array(2);
+			roomList.forEach(function(item) {
+				if(item[0] === room) {
+					scoreboard = item[2].finalhistory;
+				}
+			});
+
+			socket.broadcast.emit('end', scoreboard, room);
+			socket.emit('end', scoreboard, room);	
+		}
+		else {
+			socket.broadcast.emit('newround', card, round, room);
+			socket.emit('newround', card, round, room);	
+		}
+
+	}
+	
 	
 });
 

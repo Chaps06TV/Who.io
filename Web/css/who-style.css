@@ -2,18 +2,23 @@ h1 {
 	color: white;
 }
 
+h4 {
+	color: white;
+}
+
 .lobby {
 	background-color: rgba(0,0,0,0.5);
 	border-radius: 25px;
 	padding-bottom: 20px;
 	max-height: 500px;
-	
 }
 
 .game {
 	background-color: rgba(0,0,0,0.5);
-	height: 200px;
+	max-height: 500px;
 	border-radius: 25px;
+	padding-top: 20px;
+	min-height: 200px;	
 }
 
 .history {
@@ -41,20 +46,36 @@ h1 {
 .history-content {
 	overflow-y: auto;
 	max-height: 90%;
+
 }
 
 .history-item {
-	margin-top: 10px;
+	margin-top: 15px;
+    display: flow-root;
 }
 
 .board-title {
 	margin-bottom: 50px;
 }
 
-.ready-screen {
-	margin-top: 20px;
+.question-screen {
+
 }
 
-.question-screen {
-	margin-top: 20px;
+.final-screen {
+
+}
+
+.table-gen {
+	overflow-y: auto;
+	max-height: 90%;
+}
+
+.table-vote-result {
+	overflow-y: auto;
+}
+
+.table-scoreboard-container {
+	overflow-y: auto;
+	max-height: 90%;
 }

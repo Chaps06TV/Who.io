@@ -49,7 +49,7 @@
 						
                         <div class="col-lg-5 game justify-content-center text-center" id="game" name="game">
 							<!-- Ready Screen -->
-                        	<div class="ready-screen" id="ready-screen" name="ready-screen">
+                        	<div class="" id="ready-screen" name="ready-screen">
 								<h3 class="text-white"><strong>Players ready: </strong><span id="playerready" name="playerready"></span></h3>							
 								<button type="button" class="btn btn-success" id="ready-button" name="ready-button" onclick="playerisready()">Ready!</button>
 							</div>	
@@ -61,12 +61,26 @@
 
 								<p class="text-white" id="question" name="question"></p>
 
+								<!-- Voting table -->
+								<div id="table-vote-container" name="table-vote-container"></div>
+
+								<!-- Vote results table -->
+								<div id="table-vote-results-container" name="table-vote-results-container"></div>
+
+								<h4 style="display: none" id="votedText">You voted for <strong><span id="votedName"></span></strong></h4>
+
 							</div>
 							<!-- /Question Screen -->
 
+							<!-- Final Screen -->
+							<div class="final-screen" style="display: none;" id="final-screen" name="final-screen">
+								<h3 class="text-white"><strong>Results</strong></h3>
 
+								<!-- Scoreboard table -->
+								<div class="table-scoreboard-container" id="table-scoreboard-container" name="table-scoreboard-container"></div>
 
-
+							</div>
+							<!-- /Final Screen -->
 
                         </div>
 						
@@ -99,17 +113,22 @@
 		
 		var room = prompt("Please enter the lobby name");
 		var name = prompt("Please enter your name");
+		var lobbylist = new Array();
+		var currentQuestion = "";
 		
 		socket.emit('game-client', name, room);
 		
-		AppendHistory("Welcome " + name + "!");
 		document.getElementById("lobby-name").innerHTML = room;
 		
-		socket.on('lobby-list', function(data) {
-			document.getElementById("people").innerHTML = "";
-			data.forEach(function(item) {
-				document.getElementById("people").innerHTML += "<span class=\"text-white lobby-item\">" + item + "<span/><br/>";
-			});
+		socket.on('lobby-list', function(data, roomid) {
+			if(roomid == room) {
+				lobbylist = data;
+
+				document.getElementById("people").innerHTML = "";
+				data.forEach(function(item) {
+					document.getElementById("people").innerHTML += "<span class=\"text-white lobby-item\">" + item + "<span/><br/>";
+				});
+			}
 		}); 
 
 		socket.on('error-nolobby', function(data) {
@@ -117,23 +136,125 @@
 			window.location.href = 'index.html';
 		}); 
 
-		socket.on('playerready-update', function(data) {
-			document.getElementById("playerready").innerHTML = data;
+		socket.on('playerready-update', function(data, roomid) {
+			if(roomid == room)
+				document.getElementById("playerready").innerHTML = data;
 		});
 
-		socket.on('game-started', function(data) {
-			document.getElementById("ready-screen").style.display = "none";
-			document.getElementById("question-screen").style.display = "inline";
-			document.getElementById("question").innerHTML = data;
+		socket.on('game-started', function(data, roomid) {
+			if(roomid == room) {
+				NewQuestion("1", data);
+				currentQuestion = data;
+			}
+
 		});
+
+		socket.on('voteresult', function(data, most, mostNum, roomid) {
+			if(roomid == room) {
+				var voteResultHTML = "";
+				for(i = 2 ; i < data.length ; i++) {
+					voteResultHTML += "<tr>";
+					if(data[i][0] === most) {
+						voteResultHTML += "<th class=\"align-middle\" scope=\"row\" style=\"color: yellow;\">" + data[i][0] + "</th>";
+						voteResultHTML += "<td style=\"color: yellow;\">" + data[i][1] + "</td>";
+					}
+					else {
+						voteResultHTML += "<th class=\"align-middle\" scope=\"row\">" + data[i][0] + "</th>";
+						voteResultHTML += "<td>" + data[i][1] + "</td>";	
+					}
+					voteResultHTML += "</tr>";
+				}
+				
+				BuildTable(document.getElementById("table-vote-results-container"), voteResultHTML);
+				document.getElementById("table-vote-results-container").style.display = "inline";
+
+				AppendHistory(currentQuestion + "<br/><strong>" + most + "</strong>");
+			}
+		}); 
+
+		socket.on('newround', function(card, round, roomid) {
+			if(roomid == room) {
+				NewQuestion(round, card);
+				currentQuestion = card;
+			}
+		});
+
+		socket.on('end', function(scoreboard, roomid) {
+			if(roomid == room) {
+				document.getElementById("question-screen").style.display = "none";
+
+				var resultsHTML = "";
+				scoreboard.forEach(function(item) {
+					if(item != null) {
+						resultsHTML += "<tr>";
+						resultsHTML += "<th class=\"align-middle\" scope=\"row\">" + item[0] + "</th>";
+						
+						resultsHTML += "<td>";
+						var isFirstQuestion = true;
+						item[1].forEach(function(question) {
+							if(isFirstQuestion) {
+								resultsHTML += question;	
+								isFirstQuestion = false;
+							} 
+							else
+								resultsHTML += "<br/><br/>" + question;	
+							
+						});
+						resultsHTML += "</td>"
+
+						resultsHTML += "</tr>";
+					}
+				});
+
+				BuildTable(document.getElementById("table-scoreboard-container"), resultsHTML);
+				document.getElementById("final-screen").style.display = "inline";
+			}
+		});
+
+		function ReturnVote(username){
+			document.getElementById("table-vote-container").style.display = "none";
+			document.getElementById("votedName").innerHTML = username
+			document.getElementById("votedText").style.display = "inline";
+
+			socket.emit('playervoted', username, room);
+		}
+
+		function NewQuestion(round, question) {
+			document.getElementById("table-vote-results-container").style.display = "none";
+			document.getElementById("ready-screen").style.display = "none";
+			document.getElementById("votedText").style.display = "none";
+			document.getElementById("question").innerHTML = question;
+			document.getElementById("roundnb").innerHTML = round;
+
+			var peopleTableHTML = "";
+			lobbylist.forEach(function(item) {
+				peopleTableHTML += "<tr>";
+
+				peopleTableHTML += "<th class=\"align-middle\" scope=\"row\">" + item + "</th>";
+				peopleTableHTML += "<td><button type=\"button\" class=\"btn btn-success\" onclick=\"ReturnVote('" + item + "')\">Vote</button></td>";
+				peopleTableHTML += "</tr>";
+			});
+
+			BuildTable(document.getElementById("table-vote-container"), peopleTableHTML);
+			document.getElementById("table-vote-container").style.display = "inline";
+			document.getElementById("question-screen").style.display = "inline";
+		}
 
 		function playerisready(){
 			socket.emit('playerready');
 			document.getElementById("ready-button").style.display = "none";
 
 		}
-		
-		
+
+		function BuildTable(div, html) {
+		  var final = "<table class=\"table table-hover table-dark table-gen\"";
+		  final += "<tbody>";
+		  final += html;
+		  final += "</tbody>";
+		  final += "</table>";
+		  
+		  div.innerHTML = final;
+		}
 	</script>
 	
 </body>
