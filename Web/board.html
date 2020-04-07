@@ -14,7 +14,6 @@
 
     <!-- CSS here -->
     <link rel="stylesheet" href="css/bootstrap.min.css">
-    <link rel="stylesheet" href="css/magnific-popup.css">
     <link rel="stylesheet" href="css/font-awesome.min.css">
     <link rel="stylesheet" href="css/themify-icons.css">
     <link rel="stylesheet" href="css/nice-select.css">
@@ -29,13 +28,17 @@
             <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
         <![endif]-->
 
+	<nav class="navbar navbar-expand-lg navbar-light bg-light nav-mobile">
+	  <a class="navbar-brand" onclick="ShowLobbyMobile()" href="#">Lobby</a>
+	  <a class="navbar-brand" onclick="ShowHistoryMobile()" href="#">History</a>
+	</nav>
+
     <!-- Game area -->
-    <div class="slider_area slider_bg_1" >
+    <div class="game-content" >
         <div class="slider_text">
             <div class="">
                 <div class="position_relv">
-                    <h1 class="opcity_text d-none d-lg-block">Who.io</h1>
-                    <div class="row d-flex justify-content-between">
+                    <div class="row d-flex justify-content-between" style="margin-right: 0px !important; margin-left: 0px !important;">
                 	    <div class="board-title row col-lg-12 justify-content-center">
 					    	<h1 id="lobby-name" name="lobby-name"></h1>
 					    </div>
@@ -54,6 +57,12 @@
 								<button type="button" class="btn btn-success" id="ready-button" name="ready-button" onclick="playerisready()">Ready!</button>
 							</div>	
 							<!-- /Ready Screen -->
+
+							<!-- Notification Screen -->
+                        	<div class="" id="notification-screen" style="display: none;" name="notification-screen">
+								<h3 class="text-white" id="notif-content" name="notif-content"></h3>
+							</div>	
+							<!-- /Notification Screen -->
 
 							<!-- Question Screen -->
 							<div class="question-screen" style="display: none;" id="question-screen" name="question-screen">
@@ -98,6 +107,28 @@
     </div>
     <!-- Game area end -->
 
+    <!-- Lobby modal for mobile -->
+    <div id="lobbymodal" class="modal">
+        <div id="lobbymodalcontent" class="modal-content">
+			<div class="popup alert alert-secondary" style="margin-bottom: 0px !important;">
+				<span class="close closelobby">&times;</span>
+				<strong>Lobby</strong><br/>
+				<div class="people-mobile" id="people-mobile" name="people-mobile"></div>
+			</div>
+        </div>
+    </div>
+
+    <!-- History modal for mobile -->
+    <div id="historymodal" class="modal">
+        <div id="historymodal" class="modal-content">
+			<div class="popup alert alert-secondary" style="margin-bottom: 0px !important;">
+				<span class="close closehistory">&times;</span>
+				<strong>History</strong><br/>
+				<div class="history-mobile" id="history-mobile" name="history-mobile"></div>
+			</div>
+        </div>
+    </div>
+
     <!-- JS here -->
     <script src="js/bootstrap.min.js"></script>	
 	<script src="js/socket.io.js"></script>
@@ -105,6 +136,16 @@
 	<script>
 		function AppendHistory(text) {
 			document.getElementById("history-content").innerHTML += "<span class=\"text-white history-item\">" + text + "<span/><br/>";	
+			document.getElementById("history-mobile").innerHTML += "<span class=\"history-item\">" + text + "<span/><br/>";	
+		}
+
+		function ShowNotification(text) {
+			document.getElementById("question-screen").style.display = "none";
+			document.getElementById("ready-screen").style.display = "none";
+			document.getElementById("final-screen").style.display = "none";
+
+			document.getElementById("notif-content").innerHTML = text;
+			document.getElementById("notification-screen").style.display = "inline";
 		}
 	
 		// ======= socket.io =======
@@ -115,6 +156,7 @@
 		var name = prompt("Please enter your name");
 		var lobbylist = new Array();
 		var currentQuestion = "";
+		var gameStarted = false;
 		
 		socket.emit('game-client', name, room);
 		
@@ -125,8 +167,10 @@
 				lobbylist = data;
 
 				document.getElementById("people").innerHTML = "";
+				document.getElementById("people-mobile").innerHTML = "";
 				data.forEach(function(item) {
 					document.getElementById("people").innerHTML += "<span class=\"text-white lobby-item\">" + item + "<span/><br/>";
+					document.getElementById("people-mobile").innerHTML += "<span class=\"lobby-item\">" + item + "<span/><br/>";
 				});
 			}
 		}); 
@@ -137,16 +181,13 @@
 		}); 
 
 		socket.on('playerready-update', function(data, roomid) {
-			if(roomid == room)
+			if(roomid == room && !gameStarted)
 				document.getElementById("playerready").innerHTML = data;
 		});
 
-		socket.on('game-started', function(data, roomid) {
-			if(roomid == room) {
-				NewQuestion("1", data);
-				currentQuestion = data;
-			}
-
+		socket.on('game-started-wait', function(question) {
+			ShowNotification("The game already been started! Wait until the next round to join the group.");
+			currentQuestion = question;
 		});
 
 		socket.on('voteresult', function(data, most, mostNum, roomid) {
@@ -212,6 +253,7 @@
 		});
 
 		function ReturnVote(username){
+			document.getElementById("notification-screen").style.display = "none";
 			document.getElementById("table-vote-container").style.display = "none";
 			document.getElementById("votedName").innerHTML = username
 			document.getElementById("votedText").style.display = "inline";
@@ -220,6 +262,7 @@
 		}
 
 		function NewQuestion(round, question) {
+			document.getElementById("notification-screen").style.display = "none";
 			document.getElementById("table-vote-results-container").style.display = "none";
 			document.getElementById("ready-screen").style.display = "none";
 			document.getElementById("votedText").style.display = "none";
@@ -254,6 +297,20 @@
 		  final += "</table>";
 		  
 		  div.innerHTML = final;
+		}
+
+		function ShowLobbyMobile() {
+			document.getElementById("lobbymodal").style.display = "block";
+			document.getElementsByClassName("closelobby")[0].onclick = function() {
+				document.getElementById("lobbymodal").style.display = "none"
+			}
+		}
+
+		function ShowHistoryMobile() {
+			document.getElementById("historymodal").style.display = "block";
+			document.getElementsByClassName("closehistory")[0].onclick = function() {
+				document.getElementById("historymodal").style.display = "none"
+			}
 		}
 	</script>
 	

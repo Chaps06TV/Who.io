@@ -1059,21 +1059,6 @@ h3 {
   }
 }
 
-/* line 1, C:/Users/SPN Graphics/Desktop/CL September/209/HTML/scss/_slider.scss */
-.slider_bg_1 {
-  background-image: url(../img/banner/banner_1.png);
-  height: 100%;
-}
-
-/* line 4, C:/Users/SPN Graphics/Desktop/CL September/209/HTML/scss/_slider.scss */
-.slider_area {
-  background-size: cover;
-  background-position: center  center;
-  background-repeat: no-repeat;
-  padding-top: 130px;
-
-}
-
 @media (max-width: 767px) {
   /* line 4, C:/Users/SPN Graphics/Desktop/CL September/209/HTML/scss/_slider.scss */
   .slider_area {

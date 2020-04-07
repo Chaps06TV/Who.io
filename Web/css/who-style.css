@@ -1,9 +1,34 @@
-h1 {
-	color: white;
+body {
+	background: url(../img/banner/banner_1.jpg) no-repeat center center fixed; 
+	-webkit-background-size: cover;
+	-moz-background-size: cover;
+	-o-background-size: cover;
+	background-size: cover;
 }
 
 h4 {
 	color: white;
+}
+
+.title-index {
+	font-size: 70px;
+    font-weight: 700;
+    text-transform: capitalize;
+    line-height: 80px;
+    color: #00000;
+    margin-bottom: 66px;
+}
+
+.game-content {
+	padding-top: 130px;
+}
+
+.nav-mobile {
+	display: none;
+}
+
+.modal {
+	display: none;
 }
 
 .lobby {
@@ -78,4 +103,86 @@ h4 {
 .table-scoreboard-container {
 	overflow-y: auto;
 	max-height: 90%;
+}
+
+
+@media only screen and (max-width: 768px) {
+	/* For mobile phones: */
+	.game-content {
+		padding-top: 30px;
+		padding-bottom: 30px;
+	}
+
+	.vertical-center-mobile {
+		margin: 0;
+		position: absolute;
+		top: 50%;
+		-ms-transform: translateY(-50%);
+		transform: translateY(-50%);
+	}
+
+	.lobby {
+		display: none;
+	}
+
+	.history {
+		display: none;
+	}
+
+	.history-mobile {
+		max-height: 500px;
+		overflow-y: auto;
+	}
+
+	.people-mobile {
+		max-height: 500px;
+		overflow-y: auto;
+	}
+
+	.nav-mobile {
+		display: flex;
+	}
+
+	.people-mobile {
+		color: black !important;
+	}
+
+	/* The Modal (background) */
+	.modal {
+	  display: none; /* Hidden by default */
+	  position: fixed; /* Stay in place */
+	  z-index: 1; /* Sit on top */
+	  left: 0;
+	  top: 0;
+	  width: 100%; /* Full width */
+	  height: 100%; /* Full height */
+	  overflow: auto; /* Enable scroll if needed */
+	  background-color: rgb(0,0,0); /* Fallback color */
+	  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+	}
+
+	/* Modal Content/Box */
+	.modal-content {
+	  background-color: #fefefe;
+	  margin: 15% auto; /* 15% from the top and centered */
+	  /*padding: 20px;*/
+	  border: 1px solid #888;
+	  width: 80%; /* Could be more or less, depending on screen size */
+	}
+
+	/* The Close Button */
+	.close {
+	  color: #aaa;
+	  float: right;
+	  font-size: 28px;
+	  font-weight: bold;
+	}
+
+	.close:hover,
+	.close:focus {
+	  color: black;
+	  text-decoration: none;
+	  cursor: pointer;
+	}
+
 }

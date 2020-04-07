@@ -18,6 +18,7 @@ class Game {
 		this.currentquestion = "";
 		this.currentvotes = new Array(2);
 		this.votecount = 0;
+		this.waitlistcount = 0;
 
 		this.history = new Array(2);
 
@@ -49,6 +50,10 @@ class Game {
 		return card;
 	}
 
+	get getquestion() {
+		return this.currentquestion;
+	}
+
 	get getround() {
 		return this.currentround;
 	}
@@ -65,6 +70,10 @@ class Game {
 		return this.history;
 	}
 
+	get getwaitlist() {
+		return this.waitlistcount;
+	}
+
 	set newvote(username) {
 		var isNew = true;
 		this.currentvotes.forEach(function(item) {
@@ -79,6 +88,15 @@ class Game {
 
 		this.votecount += 1;
 		
+	}
+
+	set addwaitlist(amount) {
+		this.waitlistcount += amount;
+	}
+
+	set resetwaitlist(sure) {
+		if(sure)
+			this.waitlistcount = 0;
 	}
 
 	set insertwinner(winner) {
@@ -110,7 +128,6 @@ var clientToRoomBindingList = new Array(2);
 io.sockets.on('connection', function(socket){
 	
 	// == Connection management ==
-
 	socket.on('game-client', function(name, roomid) {
 		SaveConnection(socket.id);
 		SetSessionType(socket.id,"game-client");
@@ -129,6 +146,8 @@ io.sockets.on('connection', function(socket){
 			
 			var peopleInLobby = new Array();
 			var countReady = 0;
+			var round = 0;
+
 			clientToRoomBindingList.forEach(function(item) {
 				if(item[2] === roomid) 
 					peopleInLobby.push(item[1]);
@@ -136,12 +155,33 @@ io.sockets.on('connection', function(socket){
 				if(item[3] === true)
 					countReady++;
 			});
-			
+
+			roomList.forEach(function(item) {
+				if(item[0] === roomid) {
+					round = item[2].getround;
+				}
+			});
+
 			socket.broadcast.emit('lobby-list', peopleInLobby, roomid);
 			socket.emit('lobby-list', peopleInLobby, roomid);
+
+			// If the game is already started, tell the new socket to wait
+			if(round > 0) {
+				var question = "";
+				roomList.forEach(function(item) {
+					if(item[0] === roomid) {
+						item[2].addwaitlist = 1;
+						question = item[2].getquestion;
+					}
+				});
+
+				socket.emit('game-started-wait', question);
+			} 
+			else {
+				socket.broadcast.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
+				socket.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
+			}
 			
-			socket.broadcast.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
-			socket.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
 		}
 		else {
 			socket.emit('error-nolobby');
@@ -183,8 +223,8 @@ io.sockets.on('connection', function(socket){
 				peopleInLobby.push(item[1]);
 			}
 		});
-		
-		//socket.broadcast.emit('lobby-list', peopleInLobby);
+
+		socket.broadcast.emit('lobby-list', peopleInLobby, roomid);
 
 		socket.broadcast.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
 
@@ -192,9 +232,15 @@ io.sockets.on('connection', function(socket){
 								
 	});
 
-	// == Game Management ==
+	// === Game Management ===
 	socket.on('playerready', function() {
 		var room = "";
+		var currentround = 0;
+		var waitlistcount = 0;
+		var countTotal = 0;
+		var countReady = 0;
+
+		// Find the socket in the list, mark it as ready and take the room id
 		clientToRoomBindingList.forEach(function(item) {
 			if(item[0] === socket.id) {
 				item[3] = true;
@@ -202,8 +248,7 @@ io.sockets.on('connection', function(socket){
 			}
 		});
 
-		var countTotal = 0;
-		var countReady = 0;
+		// Count the nb of people present and ready 
 		clientToRoomBindingList.forEach(function(item) {
 			if(item[2] === room) {
 				countTotal++;
@@ -212,20 +257,28 @@ io.sockets.on('connection', function(socket){
 				countReady++;
 			}
 		});
+
+		roomList.forEach(function(item) {
+			if(item[0] === room) {
+				currentround = item[2].getround;
+				waitlistcount = item[2].getwaitlist;
+			}
+		});
 		
-		if(countReady === countTotal) {
-			var question = "";
+		// If everybody is ready, draw first question (or get the current question if joining in the middle of the game)
+		if(countReady === countTotal - waitlistcount) {
 
-			roomList.forEach(function(item) {
-				if(item[0] === room) {
-					question = item[2].nextcard;
-				}
-			});
+			// If the game is already on, tell the new socket to wait
+			if(currentround > 0) {
 
-			socket.broadcast.emit('game-started', question, room);
-			socket.emit('game-started', question, room);
+			}
+			else {
+				NewRound(room);
+			}
+			
 		}
 		else {
+			// Update the nb ready
 			socket.broadcast.emit('playerready-update', countReady + "/" + countTotal, room);
 			socket.emit('playerready-update', countReady + "/" + countTotal, room);
 	
@@ -236,12 +289,13 @@ io.sockets.on('connection', function(socket){
 	socket.on('playervoted', function(username, roomid) {
 		var voteCount = 0;
 		var votes = new Array(2);
+		var waitlistcount = 0;
 		roomList.forEach(function(item) {
 			if(item[0] === roomid) {
 				item[2].newvote = username;
 				voteCount = item[2].getvotecount;
 				votes = item[2].voteresults;
-				
+				waitlistcount = item[2].getwaitlist;
 			}
 		});
 
@@ -252,7 +306,7 @@ io.sockets.on('connection', function(socket){
 				countTotal++;
 		});
 		
-		if(voteCount == countTotal) {
+		if(voteCount == countTotal - waitlistcount) {
 			var most = "";
 			var mostNum = 0;
 			votes.forEach(function(item) {
@@ -283,6 +337,7 @@ io.sockets.on('connection', function(socket){
 			if(item[0] === room) {
 				card = item[2].nextcard;
 				round = item[2].getround;
+				item[2].resetwaitlist = true;
 			}
 		});
 
