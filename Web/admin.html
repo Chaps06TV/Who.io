@@ -1,0 +1,221 @@
+<!doctype html>
+<html class="no-js" lang="en" style="height: 100%;">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>Who.io</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- <link rel="manifest" href="site.webmanifest"> -->
+    <link rel="shortcut icon" type="image/x-icon" href="img/favicon.png">
+    <!-- Place favicon.ico in the root directory -->
+
+    <!-- CSS here -->
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <link rel="stylesheet" href="css/themify-icons.css">
+    <link rel="stylesheet" href="css/nice-select.css">
+    <link rel="stylesheet" href="css/flaticon.css">
+    <link rel="stylesheet" href="css/style.css">
+	
+	<link rel="stylesheet" href="css/who-style.css">
+</head>
+
+<body style="height: 100%;">
+    <!--[if lte IE 9]>
+            <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
+        <![endif]-->
+
+    <!-- Menu area -->
+    <div class="game-content">
+        <div class="slider_text">
+            <div class="">
+                <div class="position_relv">
+                    <div class="row d-flex justify-content-center" style="margin-right: 0px !important; margin-left: 0px !important;">
+                        <div class="col-lg-7 create justify-content-center text-center">
+							<h2 class="text-white" style="text-align: center; margin-top: 20px;">Who.io Admin</h2>
+                            
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-success flaticon-refresh" style="margin-bottom: 10px;" title="Refresh" onclick="RequestUpdate"></button>
+                            </div>
+
+                            <div id="table-container" name="table-container"></div>	
+							
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <!-- Menu end -->
+
+    <!-- Lobby modal -->
+    <div id="lobbymodal" class="modal">
+        <div id="lobbymodalcontent" class="modal-content">
+            <div class="popup alert alert-secondary" style="margin-bottom: 0px !important;">
+                <span class="close closelobby">&times;</span>
+                <strong>Lobby</strong><br/>
+                <div class="people" id="people" name="people"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS here -->
+    <script src="js/bootstrap.min.js"></script>	
+	<script src="js/socket.io.js"></script>
+	
+	<script>
+
+		// ======= socket.io =======
+		// Connexion to socket.io
+		var socket = io.connect('http://chaps06tv.ddns.net:8080');	
+
+        //Room ID | Total Rounds | Current Round | Current Question | List of players
+        var rooms = new Array(2);
+		
+		socket.emit('admin-client');
+
+		socket.on('code-requested', function() {
+			var code = prompt("Please enter the admin code");
+			socket.emit('admin-pwd', code);
+
+		}); 
+
+		socket.on('error-badcode', function(data) {
+			window.location.href = 'index.html';
+		}); 
+
+        socket.on('admin-update', function(data) {
+            rooms = data;
+            RebuildTable();
+        }); 
+
+        function Notify(room) {
+            var message = prompt("Please enter your message");
+            if(message)
+                socket.emit('admin-notify', room, message);
+        }
+
+        socket.on('disconnect', (reason) => {
+          /*if (reason === 'io server disconnect') {
+            // the disconnection was initiated by the server, you need to reconnect manually
+            socket.connect();
+          }
+          // else the socket will automatically try to reconnect*/
+          socket.connect();
+        });
+
+        function UpdateLobby(room) {
+            var isEmpty = true;
+            var lobbyHTML = "";
+            lobbyHTML += "<table>";
+
+            for(i = 2 ; i < rooms.length ; i++) {
+                if(rooms[i][0] === room) {
+                    rooms[i][4].forEach(function(item) {
+                        lobbyHTML += "<tr>";
+                        lobbyHTML += "<td class=\"align-middle\" style=\"min-width: 200px;\">" + item + "</td>";
+                        lobbyHTML += "<td class=\"align-middle text-align-right\"><button type=\"button\" class=\"btn btn-danger flaticon-remove-user\" title=\"Kick\" onclick=\"KickPlayer('" + item + "', '" + room + "')\"></button></td>";
+                        lobbyHTML += "</tr>";
+                    });
+
+                    isEmpty = false;
+                }  
+            }
+
+            lobbyHTML += "</table>";
+
+            if(isEmpty)
+                document.getElementById("lobbymodal").style.display = "none";
+            else
+                document.getElementById("people").innerHTML = lobbyHTML;
+        }
+
+        function ShowLobby(room) {
+            UpdateLobby(room);
+            document.getElementById("lobbymodal").style.display = "block";
+            document.getElementsByClassName("closelobby")[0].onclick = function() {
+                document.getElementById("lobbymodal").style.display = "none";
+            }
+        }
+
+        function KickPlayer(player,room) {
+            if (confirm('Are you sure you want to kick ' + player + '?')) 
+                socket.emit('admin-kick', player, room);
+
+            setTimeout(UpdateLobby, 1000, room);
+        }
+
+        function ForceSkip(room) {
+            if (confirm('Are you sure you want to skip the question?')) 
+                socket.emit('admin-skip-question', room);
+        }
+
+        function EndGame(room) {
+            if (confirm('Are you sure you want to end the game?')) 
+                socket.emit('admin-end-game', room);
+        }
+
+        function RequestUpdate() {
+            socket.emit('admin-requestupdate');
+        }
+
+        function RebuildTable() {
+            var skipBtnDisabled = "disabled";
+            var htstring = "";
+
+            htstring += "<table class=\"table table-hover table-dark\">";
+            htstring +=     "<tr>";
+            htstring +=         "<th class=\"align-left\">Room</th>";
+            htstring +=         "<th style=\"width: 100px;\">Players</th>";
+            htstring +=         "<th style=\"width: 300px;\">Actions</th>";
+            htstring +=     "</tr>";
+
+            for(i = 2 ; i < rooms.length ; i++) {
+                if(rooms[i][2] > 0)
+                    skipBtnDisabled = "";
+
+                htstring +=     "<tr>";
+                htstring +=         "<td class=\"align-middle\">";
+                htstring +=             "<div class=\"row\">";
+                htstring +=                 "<div class=\"row col-lg-10\">";
+                htstring +=                     "<strong class=\"col-lg-12 text-align-left\">" + rooms[i][0] + "</strong>";
+                htstring +=                     "<span class=\"col-lg-12 text-align-left\">" + rooms[i][3] + "</span>";
+                htstring +=                 "</div>";
+                htstring +=                 "<div class=\"row col-lg-2\">";
+                htstring +=                     "<strong class=\"col-lg-12 text-align-right\">Round</strong>";
+                htstring +=                     "<span class=\"col-lg-12 text-align-right\">" + rooms[i][2] + "/" + rooms[i][1] + "</span>";
+                htstring +=                 "</div>";
+                htstring +=             "</div>";
+                htstring +=         "</td>";
+                htstring +=         "<td class=\"align-middle\">";
+                htstring +=         "<a href=\"#\" onclick=\"ShowLobby('" + rooms[i][0] + "')\" title=\"Show lobby\">" +  rooms[i][4].length + "</a>";
+                htstring +=     "</td>";
+                htstring +=         "<td class=\"align-middle\">";
+                htstring +=             "<div class=\"row col-lg-12 d-flex justify-content-center fix-col\">";
+                htstring +=                 "<button type=\"button\" class=\"btn btn-primary col-lg-5\" onclick=\"Notify('" + rooms[i][0] + "')\">Notify</button>";
+                htstring +=                 "<button type=\"button\" class=\"btn btn-primary col-lg-5 offset-lg-1\" onclick=\"ForceSkip('" + rooms[i][0] + "')\" " + skipBtnDisabled + ">Force Skip</button>";
+                htstring +=             "</div>";
+                htstring +=             "<div class=\"row col-lg-12 d-flex justify-content-center fix-col\" style=\"margin-top: 10px;\">";
+                htstring +=                 "<button type=\"button\" class=\"btn btn-danger col-lg-11\" style=\"padding-left: 5px; padding-right: 5px;\" onclick=\"EndGame('" + rooms[i][0] + "')\">End Game</button>";
+                htstring +=             "</div>";
+                htstring +=         "</td>";
+                htstring +=     "</tr>";
+            }
+
+            htstring += "</table>";
+
+            document.getElementById("table-container").innerHTML = htstring;
+
+        }
+
+		
+	</script>
+	
+</body>
+
+</html>

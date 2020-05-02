@@ -175,9 +175,18 @@
 			}
 		}); 
 
-		socket.on('error-nolobby', function(data) {
+		socket.on('error-nolobby', function() {
 			alert("Wrong lobby name!");
 			window.location.href = 'index.html';
+		}); 
+
+		socket.on('kicked', function() {
+			window.location.href="about:blank";
+		}); 
+
+		socket.on('notificaton', function(roomid, message) {
+			if(roomid == room)
+				alert(message);
 		}); 
 
 		socket.on('playerready-update', function(data, roomid) {
@@ -250,6 +259,14 @@
 				BuildTable(document.getElementById("table-scoreboard-container"), resultsHTML);
 				document.getElementById("final-screen").style.display = "inline";
 			}
+		});
+
+		socket.on('disconnect', (reason) => {
+		  if (reason === 'io server disconnect') {
+		    // the disconnection was initiated by the server, you need to reconnect manually
+		    socket.connect();
+		  }
+		  // else the socket will automatically try to reconnect
 		});
 
 		function ReturnVote(username){

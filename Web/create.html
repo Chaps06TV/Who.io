@@ -30,7 +30,7 @@
             <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
         <![endif]-->
 
-    <!-- Create area -->
+    <!-- Menu area -->
     <div class="game-content">
         <div class="slider_text">
             <div class="">
@@ -42,6 +42,10 @@
 							<input class="form-control" id="lobbyname" placeholder="Lobby name" style="margin-top: 15px;"/>
 							
 							<input type="number" max="20" class="form-control" id="rounds" placeholder="Amount of rounds" style="margin-top: 15px;"/>
+
+                            <select class="form-control" id="deck" placeholder="Amount of rounds" style="margin-top: 15px;">
+                                <option value="-1">- Select Question Deck -</option>
+                            </select>
 							
 							<button type="button" class="btn btn-primary" onclick="submit()" style="margin-top: 15px; ">Create</button>
                         </div>
@@ -52,7 +56,7 @@
         </div>
 
     </div>
-    <!-- Create area end -->
+    <!-- Menu area end -->
 
     <!-- JS here -->
     <script src="js/bootstrap.min.js"></script>	
@@ -64,14 +68,30 @@
 		var socket = io.connect('http://chaps06tv.ddns.net:8080');	
 		
 		socket.emit('create-client');
+
+        socket.on('create-deck-list', function(data) {
+            console.log(data);
+
+            var optionsHTML = "";
+            for(i = 2 ; i < data.length ; i++) {
+                optionsHTML += "<option value=\"" + data[i][0] + "\">";
+                optionsHTML += data[i][1];
+                optionsHTML += "</option>";
+            }
+
+            console.log(optionsHTML);
+            document.getElementById("deck").innerHTML += optionsHTML;
+        }); 
 		
 		function submit(){
 
 			var name = document.getElementById('lobbyname').value;
 			var rounds = document.getElementById('rounds').value;
+            var decklist = document.getElementById("deck");
+            var selecteddeck = deck.options[deck.selectedIndex].value;
 			
-			if(name.length > 0 && rounds.length > 0) {
-				socket.emit('create-lobby', name, rounds);
+			if(name.length > 0 && rounds.length > 0 && selecteddeck > -1) {
+				socket.emit('create-lobby', name, rounds, selecteddeck);
 				
 				window.location.href = 'board.html';
 			}
