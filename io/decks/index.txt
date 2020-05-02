@@ -1,0 +1,4 @@
+0,All questions,all.txt
+1,Friendly,friends.txt
+2,Horny Tuesdays,adult.txt
+3,Newests,new.txt

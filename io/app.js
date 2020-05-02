@@ -4,7 +4,7 @@ var app = require('express'),
     ent = require('ent'), // Permet de bloquer les caractères HTML (sécurité équivalente à htmlentities en PHP)
     path = require('path'),
     fs = require('fs'),
-    lineReader = require('line-reader');;
+    lineReader = require('line-reader');
 
 // Class for the game
 class Game {
@@ -22,8 +22,9 @@ class Game {
 
 		this.history = new Array(2);
 
-		if(this.cards.length < rounds)
-			rounds = this.cards.length;
+		if(this.cards.length < this.rounds)
+			this.rounds = this.cards.length;
+
 	}
 
 	get nextcard() {
@@ -74,6 +75,10 @@ class Game {
 		return this.waitlistcount;
 	}
 
+	get getroundscount() {
+		return this.rounds;
+	}
+
 	set newvote(username) {
 		var isNew = true;
 		this.currentvotes.forEach(function(item) {
@@ -99,6 +104,13 @@ class Game {
 			this.waitlistcount = 0;
 	}
 
+	set setround(amount) {
+		this.currentround = amount
+
+		if(this.rounds < this.currentround)
+			this.currentround = this.rounds;
+	}
+
 	set insertwinner(winner) {
 		var temp = this.currentquestion;
 		var isNew = true;
@@ -115,7 +127,7 @@ class Game {
 	}
 }
 
-
+var tempadminkey = "";
 
 var connectionList = new Array(2);
 
@@ -124,8 +136,99 @@ var roomList = new Array();
 
 // Socket ID | Username | Room ID | Ready
 var clientToRoomBindingList = new Array(2);
+
+// Deck ID | Deck Name | Deck Path
+var decklist = new Array(2);
+
+// Load the list of decks
+GetDeckList();
 	
 io.sockets.on('connection', function(socket){
+	// == Admin page management
+	socket.on('admin-client', function() {
+		SaveConnection(socket.id);
+		SetSessionType(socket.id,"admin-client");
+		console.log('\x1b[33m%s\x1b[37m%s\x1b[0m', GetConnection(socket.id), " connected");
+		OutSessions();
+
+		tempadminkey = Math.random().toString(36).substring(2, 10);
+
+		console.log("Admin code: " + tempadminkey);
+
+		socket.emit('code-requested');
+
+	});
+
+	socket.on('admin-pwd', function(pwd) {
+		if(pwd === tempadminkey) {
+			AdminUpdate();
+		}
+		else {
+			socket.emit('error-badcode');
+		}
+
+	});
+
+	socket.on('admin-notify', function(room, message) {
+		socket.broadcast.emit('notificaton', room, message);
+
+		console.log("Message to " + room + ": " + message);
+	});
+
+
+	socket.on('admin-end-game', function(room) {
+		// Fake the game end
+		var scoreboard = new Array(2);
+		roomList.forEach(function(item) {
+			if(item[0] === room) {
+				scoreboard = item[2].finalhistory;
+				 item[2].setround = item[2].getroundscount;
+			}
+		});
+
+		socket.broadcast.emit('end', scoreboard, room);
+
+		AdminUpdate();
+	});
+
+	socket.on('admin-skip-question', function(room) {
+		NewRound(room);
+	});
+
+	socket.on('admin-kick', function(player, room) {
+		clientToRoomBindingList.forEach(function(item) {
+			if(item[1] === player){
+				io.to(item[0]).emit('kicked');
+			}
+		});
+
+		AdminUpdate();
+	});
+
+
+	socket.on('admin-requestupdate', function() {
+		AdminUpdate();
+	});
+
+	function AdminUpdate() {
+		//Room ID | Total Rounds | Current Round | Current Question | List of players
+		var update = new Array(2);
+
+		roomList.forEach(function(item) {
+			// Player count
+			var players = new Array();
+			clientToRoomBindingList.forEach(function(clientitem) {
+				if(clientitem[2] === item[0]) 
+					players.push(clientitem[1]);
+			});
+
+			update.push([item[0], item[2].getroundscount, item[2].getround, item[2].getquestion, players]);
+
+		});
+
+
+		socket.broadcast.emit('admin-update', update);
+	}
 	
 	// == Connection management ==
 	socket.on('game-client', function(name, roomid) {
@@ -194,12 +297,22 @@ io.sockets.on('connection', function(socket){
 		SetSessionType(socket.id,"create-client");
 		console.log('\x1b[33m%s\x1b[37m%s\x1b[0m', GetConnection(socket.id), " connected");
 		OutSessions();
+
+		socket.emit('create-deck-list', decklist);
 		
 	});
 	
-	socket.on('create-lobby', function(roomid, rounds) {
-		roomList.push([roomid,rounds, new Game(roomid,rounds,DeckToArray("./deck1.txt"))]);
-		
+	socket.on('create-lobby', function(roomid, rounds, deck) {
+		var decktoload = "all.txt";
+        for(i = 2 ; i < decklist.length ; i++) {
+            if(decklist[i][0] == deck)
+            	decktoload = decklist[i][2];
+        }
+        decktoload = "./decks/" + decktoload;
+
+		roomList.push([roomid,rounds, new Game(roomid,rounds, DeckToArray(decktoload))]);
+
+		AdminUpdate();	
 	});
 	
 	socket.on('disconnect', function() {
@@ -207,6 +320,7 @@ io.sockets.on('connection', function(socket){
     	DelConnection(socket.id);
 		
 		var roomid = "";	
+		var round = 0;
 		var countReady = 0;
 		clientToRoomBindingList.forEach(function(item, i) {
 			if(item[0] === socket.id){
@@ -216,6 +330,12 @@ io.sockets.on('connection', function(socket){
 			if(item[3] === true)
 				countReady++;
 		});
+
+		roomList.forEach(function(item) {
+			if(item[0] === roomid) {
+				round = item[2].getround;
+			}
+		});
 		
 		var peopleInLobby = new Array();
 		clientToRoomBindingList.forEach(function(item) {
@@ -224,11 +344,17 @@ io.sockets.on('connection', function(socket){
 			}
 		});
 
-		socket.broadcast.emit('lobby-list', peopleInLobby, roomid);
+		if(peopleInLobby.length < 1 && round > 0) {
+			CleanupRooms();
+		}
+		else {
+			socket.broadcast.emit('lobby-list', peopleInLobby, roomid);
+			socket.broadcast.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
 
-		socket.broadcast.emit('playerready-update', countReady + "/" + peopleInLobby.length, roomid);
+			CheckForVotes(roomid);			
+		}
 
-		//CleanupRooms();
+		AdminUpdate();
 								
 	});
 
@@ -268,13 +394,8 @@ io.sockets.on('connection', function(socket){
 		// If everybody is ready, draw first question (or get the current question if joining in the middle of the game)
 		if(countReady === countTotal - waitlistcount) {
 
-			// If the game is already on, tell the new socket to wait
-			if(currentround > 0) {
-
-			}
-			else {
+			if(!currentround > 0)
 				NewRound(room);
-			}
 			
 		}
 		else {
@@ -287,25 +408,38 @@ io.sockets.on('connection', function(socket){
 	});
 
 	socket.on('playervoted', function(username, roomid) {
-		var voteCount = 0;
-		var votes = new Array(2);
-		var waitlistcount = 0;
 		roomList.forEach(function(item) {
 			if(item[0] === roomid) {
 				item[2].newvote = username;
+			}
+		});
+
+		console.log(GetConnection(socket.id) + " voted");
+
+		CheckForVotes(roomid);
+		
+	});
+
+	// Check if everybody voted
+	function CheckForVotes(roomid) {
+		var voteCount = 0;
+		var votes = new Array(2);
+		var waitlistcount = 0;
+		var countTotal = 0;
+
+		roomList.forEach(function(item) {
+			if(item[0] === roomid) {
 				voteCount = item[2].getvotecount;
 				votes = item[2].voteresults;
 				waitlistcount = item[2].getwaitlist;
 			}
 		});
-
-		// Check if everybody voted
-		var countTotal = 0;
+		
 		clientToRoomBindingList.forEach(function(item) {
 			if(item[2] === roomid)
 				countTotal++;
 		});
-		
+
 		if(voteCount == countTotal - waitlistcount) {
 			var most = "";
 			var mostNum = 0;
@@ -327,9 +461,9 @@ io.sockets.on('connection', function(socket){
 			setTimeout(NewRound, 5000, roomid);
 
 		}
+	}
 
-	});
-
+	// New round, new question, reset votes
 	function NewRound(room) {
 		var card = "";
 		var round = 0;
@@ -358,8 +492,9 @@ io.sockets.on('connection', function(socket){
 			socket.emit('newround', card, round, room);	
 		}
 
+		AdminUpdate();	
 	}
-	
+
 	
 });
 
@@ -385,12 +520,18 @@ function CleanupRooms() {
 }
 
 function DeckToArray(deck) {
-	var arrayDeck = new Array();
-	lineReader.eachLine(path.join(__dirname, deck), function(line) {
-	    arrayDeck.push(line);
+	var deckstr = fs.readFileSync(path.join(__dirname, deck), "utf8");
+
+	return deckstr.split('\n');
+}
+
+function GetDeckList() {
+	var temp = new Array();
+	lineReader.eachLine(path.join(__dirname, "./decks/index.txt"), function(line) {
+	    temp = line.split(',');
+	    decklist.push([temp[0],temp[1],temp[2]]);
 	});
-	
-	return arrayDeck;
+
 }
 
 
